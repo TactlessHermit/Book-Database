@@ -1,22 +1,24 @@
-import java.util.Scanner;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.InputMismatchException;
+import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
         System.out.println("WELCOME");
-        //runOption();
-        dbTest();
-    }
+        ConnectDB connectDB = new ConnectDB();
+        Connection con = connectDB.connectToDb();
+        noRunOption(con);
+        //DbBookOptions dbBookOptions = new DbBookOptions();
+        //dbBookOptions.runSelectAllQuery(con);
 
-    public static void dbTest(){
-        ConnectDB obj = new ConnectDB();
-        Book data = new Book("CHERUB", "Dan Hodge", 20, 10.99);
-        String query = obj.insertQuery(data);
 
-        //INSERT QUERY
-        //obj.connectToDb(query);
-        //obj.
+        try {
+            con.close();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
@@ -34,9 +36,10 @@ public class Main {
                 //Print menu
                 System.out.println("\nEnter '1' to add a book");
                 System.out.println("Enter '2' to update a book's stock");
-                System.out.println("Enter '3' to search for a book");
-                System.out.println("Enter '4' to delete a book");
-                System.out.println("Enter '5' to see all books");
+                System.out.println("Enter '3' to delete a book via its ID");
+                System.out.println("Enter '4' to see all books");
+                System.out.println("Enter '5' to search for a book via its ID");
+                System.out.println("Enter '6' to search for all books by an author");
                 System.out.println("Enter '0' to exit");
                 option = kb.nextInt();
                 valid = true;
@@ -49,29 +52,33 @@ public class Main {
         return option;
     }
 
+    /**
+     * @Description Runs code that works with arraylist of books
+     */
     public static void runOption(){
         /*** Local Variables ***/
         boolean notDone = true;
         int option = -5;
-        ArrayList<Book> books = new ArrayList<Book>();
+        NoDbBookOptions bookOp = new NoDbBookOptions();
+        ArrayList<Book> books = new ArrayList<>();
 
         while(notDone){
             option = menuOptions();
             switch(option){
                 case 1:
-                    books.add(addBook());
+                    books.add(bookOp.addBook());
                     break;
                 case 2:
-                    updateStock(books);
+                    bookOp.updateStock(books);
                     break;
                 case 3:
-                    searchBook(books);
+                    bookOp.searchBook(books);
                     break;
                 case 4:
-                    deleteBook(books);
+                    bookOp.deleteBook(books);
                     break;
                 case 5:
-                    printBooks(books);
+                    bookOp.printBooks(books);
                     break;
                 case 0:
                     notDone = false;
@@ -87,180 +94,60 @@ public class Main {
     }
 
     /**
-     * @Description Creates and returns a book object with user input
-     * @return Book
+     * @Description Runs code that works with Postgres Database
+     * @param con
      */
-    public static Book addBook(){
-        /*** Local Variables ***/
-        Book bookData;
-        String title;
-        String author;
-        double price = 0.00;
-        int stock = 0;
-        boolean valid = false;
-        Scanner sc = new Scanner(System.in);
+    public static void noRunOption(Connection con){
+        /****   LOCAL VARIABLES ****/
+        boolean notDone = true;
+        int option = -1;
+        Book book;
+        DbBookOptions dbBookOptions = new DbBookOptions();
+        NoDbBookOptions bookOptions = new NoDbBookOptions();
 
-        //Get book title
-        System.out.println("\nEnter book title: ");
-        title = sc.nextLine();
+        //Reads table name for queries from database.properties
+        dbBookOptions.getTableName();
 
-        //Get book author
-        System.out.println("Enter book author: ");
-        author = sc.nextLine();
+        while(notDone){
+            option = menuOptions();
 
-        //Get book price
-        while(!valid){
-            try{
-                System.out.println("Enter book price: ");
-                price = sc.nextDouble();
-                sc.nextLine(); //Handle '\n'
-                valid = true;
-            }catch(InputMismatchException e){
-                System.out.println("\nERROR:: Enter a valid decimal (e.g: 9.99)!!\n");
-                sc.nextLine(); //Handle '\n'
+            switch (option){
+                case 1: //INSERT BOOK
+                    book = bookOptions.addBook();
+                    dbBookOptions.runInsertQuery(book, con);
+                    break;
+
+                case 2: //UPDATE BOOK
+                    dbBookOptions.runUpdateQuery(con);
+                    break;
+
+                case 3: //DELETE BOOK
+                    dbBookOptions.runDeleteQuery(con);
+                    break;
+
+                case 4: //SEARCH ALL
+                    dbBookOptions.runSelectAllQuery(con);
+                    break;
+
+                case 5: //SEARCH BY ID
+                    dbBookOptions.runSelectByIdQuery(con);
+                    break;
+
+                case 6: //SEARCH BY AUTHOR
+                    dbBookOptions.runSelectByAuthorQuery(con);
+                    break;
+
+                case 0: //EXIT PROGRAM
+                    notDone = false;
+                    System.out.println("NOTE:: TERMINATING PROGRAM...");
+                    break;
+
+                default:
+                    System.out.println("ERROR:: Enter a valid option from those displayed!!\n");
+                    break;
             }
         }
-        valid = false;  //Reset valid
-
-        //Get book stock
-        while(!valid){
-            try{
-                System.out.println("Enter book stock: ");
-                stock = sc.nextInt();
-                valid = true;
-            }catch(InputMismatchException e){
-                System.out.println("\nERROR:: Enter a numeric value!!\n");
-                sc.nextLine(); //Handle '\n';
-            }
-        }
-
-        //Create book object
-        bookData = new Book(title, author, stock, price);
-
-        return bookData;
     }
 
-    /**
-     * @Description Searches for and deletes a Book object from a Book arrayList via its ID attribute
-     * @param list
-     */
-    public static void deleteBook(ArrayList<Book> list){
-        /*** Local Variables ***/
-        Book bookData;
 
-        //Find book
-        bookData = searchBook(list);
-
-        //Delete book
-        if(list.remove(bookData)){
-            System.out.println("\nNOTE:: Book removed from registry.\n");
-        }
-    }
-
-    /**
-     * @Description Searches for and updates a Book object's stock attribute using its ID attri.
-     * @param books
-     */
-    public static void updateStock(ArrayList<Book> books){
-        /*** Local Variables ***/
-        int newStock = 0;
-        Scanner kb = new Scanner(System.in);
-        Book bookData;
-        boolean valid = false;
-
-        //Find book
-        bookData = searchBook(books);
-
-        //Show returned book details
-        printBook(bookData);
-
-        //Get new stock
-        System.out.println("\nEnter new stock: ");
-        while(!valid){
-            try{
-                newStock = kb.nextInt();
-                kb.nextLine(); //Handle '\n'
-                valid = true;
-            }catch(InputMismatchException e){
-                System.out.println("\nERROR:: Enter a numeric value!!\n");
-            }
-        }
-
-        //Update stock
-        bookData.setStock(newStock);
-    }
-
-    /**
-     * @Description Calls printBook() to print all Book objects in a Book arraylist
-     * @param books
-     */
-    public static void printBooks(ArrayList<Book> books){
-        System.out.println("\nHere are all the books in the registry: ");
-        for(Book bookData : books){
-            printBook(bookData);
-        }
-    }
-
-    /**
-     * @Description Prints attribute values of a book object
-     * @param bookData
-     */
-    public static void printBook(Book bookData){
-        System.out.println("Book ID: " + bookData.getID());
-        System.out.println("Book Title: " + bookData.getTitle());
-        System.out.println("Book Author: " + bookData.getAuthor());
-        System.out.println("Book Price: " + bookData.getPrice());
-        System.out.println("Book Stock: " + bookData.getStock() + "\n");
-    }
-
-    /**
-     * @Description Calls findBook() to search for book object
-     * @param list
-     * @return Book
-     */
-    public static Book searchBook(ArrayList<Book> list){
-        /**** Local Variables ****/
-        Book resultBook = findBook(list);
-
-        if(resultBook == null){
-            System.out.println("\nNOTE:: Couldn't find a book with that ID.\n");
-        }else{
-            System.out.println("\nFound book: ");
-            printBook(resultBook);
-        }
-
-        return resultBook;
-    }
-
-    /**
-     * @Description Searches for a book object within the arraylist by its ID attribute
-     * @param list
-     * @return Book
-     */
-    public static Book findBook(ArrayList<Book> list){
-        /*** Local Variables ***/
-        int ID = -1;
-        Book resultBook = null;
-        boolean valid = false;
-        Scanner kb = new Scanner(System.in);
-
-        System.out.println("\nEnter book ID: ");
-        while(!valid){
-            try{
-                ID = kb.nextInt();
-                valid = true;
-            }catch(InputMismatchException e){
-                System.out.println("\nERROR:: Enter a numeric value!!\n");
-            }
-        }
-
-        for(Book bookData : list){
-            if(bookData. getID() == ID){
-                resultBook = bookData;
-                break;
-            }
-        }
-
-        return resultBook;
-    }
 }

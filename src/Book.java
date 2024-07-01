@@ -6,7 +6,7 @@ public class Book {
     private String author;
     private int stock;
     private double price;
-    private static int counter = 1000;
+    private static int counter = 1200;
 
     public Book(String title, String author, int stock, double price){
         this.ID = counter++;
